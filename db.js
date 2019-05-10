@@ -53,7 +53,7 @@ var readData = (cb) =>{
 	    csvData.push(row);
 	  })
 	  .on('end', function () {
-	    console.log('csvData loaded');
+	    console.log('csvData loaded \n Lading data to database');
 	    cb();
 	  })
 }
