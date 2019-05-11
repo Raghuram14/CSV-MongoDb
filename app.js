@@ -1,5 +1,12 @@
+const express = require('express');
 const db = require("./db");
+var app = express();
+var events = require('events');
+var bodyParser = require("body-parser");
+var eventEmitter = new events.EventEmitter();
 
+// parses json data sent to us by the user 
+app.use(bodyParser.json());
 // Connecting to database
 db.connect((err)=>{
     // If err unable to connect to database
@@ -8,43 +15,43 @@ db.connect((err)=>{
         console.log('Unable to connect to database');
         process.exit(1);
     }else{
-        console.log('Successfully Connected to database');
+         app.listen(3000,()=>{
+            console.log('Successfully Connected to database, app listening on port 3000');
+            console.log(`\n 1. When you try to connect to localhost:3000 csv data will be loaded to db.
+            	\n 2. You can use POST/getPolicyInfo(input JSON body) to get policy info by using username Ex: { "name" : "Lura Lucca"}.
+				\n 3. You can use GET/getAggregate to get aggregate policy of each user.`)
+        });
     }
 });
 
-var timer = setInterval(() => {
-	if(db.isDataImported()){
-		console.log("Data Has Been Loaded To MongoDB..!")
-		clearInterval(timer);
-		proceedToNextTask();
-	}
+app.get('/',(req,res) =>{
+	db.uploadDataToDb((err,result) =>{
+		if(err)
+			res.json("Error while loading data to database please try to reconnect again.!");
+		else
+			res.json(result);
+	})
 })
 
-var proceedToNextTask = () =>{
-	var stdin = process.openStdin();
-	console.log(`\n\nType the username to find Policy info.`)
-	console.log(`Press 1 to see the aggregated policy by each user.\n`)
-	stdin.addListener("data", function(arg) {
-	    var input = arg.toString().trim();
-	    console.log("you entered: "+ input);
-	    console.log("Searhing the info.....");
-	    if(input == 1){
-	    	console.log("Fetching aggregated plicies...")
-	    	db.showAggregation(function(err,res){
-		    	if(err)
-		    		console.log("Error while fetching data please try again");
-		    	else
-		    		console.log(res)
-	    	})
-	    }else{
-	    	db.getPolicyInfo(input,function(err,res){
-		    	if(err)
-		    		console.log("Error while fetching data please try again");
-		    	else if(res && res == "NF")
-		    		console.log("User not found please try providing a correct name");
-		    	else
-		    		console.log(res)
-	    	})
-	    }
-	});
-}
+app.post('/getPolicyInfo',(req,res) => {
+	var userName = req.body.name;
+	// console.log("username ",userName)
+	db.getPolicyInfo(userName,function(err,param){
+    	if(err)
+    		console.log("Error while fetching data please try again");
+    	else if(param && param == "NF")
+    		res.json("User not found please try providing a correct name");
+    	else
+    		res.json(param);
+	})
+})
+
+
+app.get('/getAggregate',(req,res) => {
+	db.showAggregation(function(err,params){
+    	if(err)
+    		res.json("Error while fetching data please try again");
+    	else
+    		res.json(params);
+	})
+})

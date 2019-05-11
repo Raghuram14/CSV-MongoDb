@@ -1,22 +1,20 @@
 const fs = require('fs');
 const csv = require('csv-parser');
-const async = require('async')
+const async = require('async');
+var events = require('events');
+var eventEmitter = new events.EventEmitter();
 
 const MongoClient = require('mongodb').MongoClient;
 const ObjectID = require('mongodb').ObjectID;
 const mongoOptions = {useNewUrlParser : true};
 const url = "mongodb://localhost:27017";
-const dbName = 'CSV-Insuredmine';
+const dbName = 'csv';
 const csvFile = 'Sample Sheet.csv';
 var db = null;
 var csvData = [];
 var sortedData = {};
-var isDataLoadedToDB = false
-var totalRows = 0;
 
 const connect = (cb) =>{
-    // if state is not NULL
-    // Means we have connection already, call our CB
     if(db)
         cb();
     else{
@@ -25,25 +23,31 @@ const connect = (cb) =>{
             if(err)
                 cb(err);
             else{
-                var doesDataBaseExist = false
 				db = client.db(dbName);
-				db.collection('User').estimatedDocumentCount(function(err,res){
-					if(err){
-						cb(err);
-					}else if(res >10){
-						isDataLoadedToDB = true;
-						cb()
-					}else{
-						readData(function(){
-							createUniqueIndex();
-							sortData();
-						})
-                		cb();
-					}
-				})
+            	cb();
             }
         });
     }
+}
+
+
+var uploadDataToDb = (cb) =>{
+	db.collection('User').estimatedDocumentCount(function(err,res){
+		if(err){
+			cb(err);
+		}else if(res >10){ // to check whether data has already been loaded or not
+			cb(null,"Data have been loaded successfully to the database...!");
+		}else{
+			readData(function(){
+				createUniqueIndex();
+				sortData(()=>{
+					pushToInsertData(() => {
+    					cb(null,"Data have been loaded successfully to the database...!");
+					})
+				});
+			})
+		}
+	})
 }
 
 var readData = (cb) =>{
@@ -58,7 +62,7 @@ var readData = (cb) =>{
 	  })
 }
 
-var sortData = () =>{
+var sortData = (callback) =>{
 	async.eachSeries(Object.keys(csvData), function (index, next){ 
 	// for(let index in csvData){
 		var userInfo = [];
@@ -92,7 +96,7 @@ var sortData = () =>{
 		sortedData[index].user = userInfo;
 		next();
 	})
-	pushToInsertData();
+	callback();
 }
 
 var commonInsertFunc = (collection,insertData,Type,index) =>{
@@ -123,9 +127,8 @@ var createUniqueIndex = () =>{
 	})
 }
 
-var pushToInsertData = () =>{
+var pushToInsertData = (callback) =>{
 	async.eachSeries(Object.keys(sortedData), function (index, next){ 
-	// for(let index in sortedData){
 		// Inserting Agent Details
 		commonInsertFunc(db.collection('Agent'),{Agent_Name : sortedData[index]['agent']},"Agent");
 
@@ -184,7 +187,7 @@ var pushToInsertData = () =>{
 			}
 		);		
 	}, function(err) {
-		isDataLoadedToDB = true;
+		callback();
 	}); 
 }
 
@@ -203,19 +206,9 @@ function fetchIds(collection,searchKey,callback){
 	})
 }
 
-process.on('unhandledRejection', error => {
-  // Prints "unhandledRejection woops!"
-  console.log('unhandledRejection woops!');
-});
-
 // returns database connection 
 const getDB = ()=>{
     return db;
-}
-
-// returns database connection 
-const isDataImported = ()=>{
-    return isDataLoadedToDB;
 }
 
 const getPolicyInfo = (userName,callback) =>{
@@ -243,7 +236,7 @@ const getPolicyInfo = (userName,callback) =>{
 
 async function showAggregation(callback){
 	var docs = await db.collection('Policy Info').aggregate([
-		// {$skip : 0},{$limit : 5},
+		{$skip : 0},{$limit : 100},
 		{$lookup : { from : "User",
 			localField : "User_id",
 			foreignField : "_id",
@@ -260,9 +253,9 @@ async function showAggregation(callback){
 			as : "Carrier"
 		}},
 		{$project: {Policy_Number:1,Policy_start_date:1,Policy_end_date:1,_id:0,
-			UserInfo: { $arrayElemAt: [ "$UserInfo", 0 ]},
-            LOB: { $arrayElemAt: [ "$LOB", 0 ]},
-            Carrier: {$arrayElemAt: [ "$Carrier", 0 ]}
+			// UserInfo: { $arrayElemAt: [ "$UserInfo", 0 ]},
+            LOB: { $arrayElemAt: [ "$LOB", 0 ] },
+            Carrier: { $arrayElemAt: [ "$Carrier", 0 ] }
         }}
 	]).toArray();
 
@@ -272,4 +265,8 @@ async function showAggregation(callback){
 		callback(true);
 }
 
-module.exports = {getDB,connect,isDataImported,getPolicyInfo,showAggregation};
+process.on('unhandledRejection', error => {
+  // Prints "unhandledRejection woops!"
+  console.log('unhandledRejection woops!');
+});
+module.exports = {getDB,connect,getPolicyInfo,showAggregation,uploadDataToDb};
