@@ -1,9 +1,7 @@
 const express = require('express');
 const db = require("./db");
 var app = express();
-var events = require('events');
 var bodyParser = require("body-parser");
-var eventEmitter = new events.EventEmitter();
 
 // parses json data sent to us by the user 
 app.use(bodyParser.json());

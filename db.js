@@ -1,8 +1,6 @@
 const fs = require('fs');
 const csv = require('csv-parser');
 const async = require('async');
-var events = require('events');
-var eventEmitter = new events.EventEmitter();
 
 const MongoClient = require('mongodb').MongoClient;
 const ObjectID = require('mongodb').ObjectID;
