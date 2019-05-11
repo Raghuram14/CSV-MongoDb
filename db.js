@@ -234,7 +234,7 @@ const getPolicyInfo = (userName,callback) =>{
 
 async function showAggregation(callback){
 	var docs = await db.collection('Policy Info').aggregate([
-		{$skip : 0},{$limit : 100},
+		// {$skip : 0},{$limit : 100},
 		{$lookup : { from : "User",
 			localField : "User_id",
 			foreignField : "_id",

@@ -34,14 +34,18 @@ app.get('/',(req,res) =>{
 app.post('/getPolicyInfo',(req,res) => {
 	var userName = req.body.name;
 	// console.log("username ",userName)
-	db.getPolicyInfo(userName,function(err,param){
-    	if(err)
-    		console.log("Error while fetching data please try again");
-    	else if(param && param == "NF")
-    		res.json("User not found please try providing a correct name");
-    	else
-    		res.json(param);
-	})
+	if(typeof userName != 'undefined'){
+		db.getPolicyInfo(userName,function(err,param){
+	    	if(err)
+	    		console.log("Error while fetching data please try again");
+	    	else if(param && param == "NF")
+	    		res.json("User not found please try providing a correct name");
+	    	else
+	    		res.json(param);
+		})
+	}else{
+		res.json("Wrong format in sent username try postings it in JSON(application/JSON) format")
+	}
 })
 
 
